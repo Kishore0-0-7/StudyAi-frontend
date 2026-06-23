@@ -1,228 +1,34 @@
-import { useState } from 'react';
-import { Box, Button, TextField, Typography, Container, Paper, CircularProgress, Chip, Card, CardContent, LinearProgress } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Grid, LinearProgress, Paper, Stack, TextField, Typography } from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import api from '../api/api';
 import Navbar from '../components/Navbar';
+import { format, isValid } from 'date-fns';
 
-const toPercent = (score) => Math.round(Math.max(0, Math.min(1, Number(score) || 0)) * 100);
+const samples = ['Photosynthesis', 'TCP vs UDP', "Newton's Law", 'Derivative', 'Ionic Bond'];
+const prompts = { Photosynthesis: 'How does photosynthesis work?', 'TCP vs UDP': 'What is the difference between TCP and UDP?', "Newton's Law": "Explain Newton's second law of motion.", Derivative: 'What is the derivative of x²?', 'Ionic Bond': 'What is an ionic bond?' };
+const MAX_CHARS = 1000; const toPercent = value => Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 100);
+const topicColor = { Biology:'#22C55E', Physics:'#2563EB', Chemistry:'#F59E0B', Mathematics:'#8B5CF6', 'Computer Science':'#2563EB', General:'#64748B' };
+const prettyDate = value => { const date = value ? new Date(value) : null; return date && isValid(date) ? format(date, 'MMM dd, yyyy') : 'Recently'; };
+const fallbackExplanation = topic => `Detected concepts related to ${String(topic || 'your question').toLowerCase()} and compared them with your saved study activity.`;
 
-const getConfidenceMeta = (score) => {
-  const percentage = toPercent(score);
-  if (percentage >= 85) return { color: 'success', label: 'High confidence', helper: 'The question strongly matches this topic.' };
-  if (percentage >= 70) return { color: 'primary', label: 'Good confidence', helper: 'The topic is likely correct.' };
-  if (percentage >= 55) return { color: 'warning', label: 'Needs review', helper: 'The AI found a match, but it is less certain.' };
-  return { color: 'error', label: 'Low confidence', helper: 'Try adding more subject-specific details.' };
-};
+function SimilarCard({ item }) { const score = toPercent(item.score); return <Card elevation={0} sx={{ height:'100%' }}><CardContent sx={{ p:2.5 }}><Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start"><Chip label={`${score}% Similar`} size="small" color={score >= 80 ? 'success' : 'primary'} /><Typography variant="caption" color="text.secondary" sx={{ display:'flex', alignItems:'center', gap:.5 }}><CalendarTodayIcon sx={{ fontSize:13 }}/>{prettyDate(item.createdAt)}</Typography></Stack><Typography fontWeight={650} sx={{ mt:2, minHeight:48 }}>{item.content || item.question}</Typography><Chip label={item.topic || 'General'} size="small" sx={{ mt:2, bgcolor:'#F1F5F9', color:topicColor[item.topic] || topicColor.General }} /></CardContent></Card>; }
 
-const SimilarityCard = ({ question }) => {
-  const percentage = toPercent(question.score);
-  
-  let color = 'warning';
-  let hexColor = '#ff9800';
-  if (percentage >= 90) {
-    color = 'success';
-    hexColor = '#4caf50';
-  } else if (percentage >= 75) {
-    color = 'primary';
-    hexColor = '#2196f3';
-  }
-
-  return (
-    <Card 
-      sx={{ 
-        mb: 2, 
-        transition: 'all 0.3s ease',
-        borderLeft: `6px solid ${hexColor}`,
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
-        }
-      }}
-    >
-      <CardContent sx={{ pb: '16px !important' }}>
-        <Typography variant="body1" fontWeight="500" sx={{ mb: 2 }}>
-          "{question.content}"
-        </Typography>
-        
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-          <Chip 
-            label={`${percentage}% Match`} 
-            color={color} 
-            size="small" 
-            sx={{ fontWeight: 'bold' }} 
-          />
-          <Typography variant="body2" color="text.secondary">
-            Similarity
-          </Typography>
-        </Box>
-        
-        <LinearProgress 
-          variant="determinate" 
-          value={percentage} 
-          color={color}
-          sx={{ height: 6, borderRadius: 3 }}
-        />
-      </CardContent>
-    </Card>
-  );
-};
-
-const AskQuestion = () => {
-  const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!content.trim()) return;
-    
-    setLoading(true);
-    setError('');
-    setResult(null);
-
-    try {
-      const res = await api.post('/questions', { content });
-      setResult(res.data);
-      setContent('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to process question. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const confidence = getConfidenceMeta(result?.confidenceScore);
-  const confidencePercent = toPercent(result?.confidenceScore);
-
-  return (
-    <Box sx={{ bgcolor: '#f4f6f8', minHeight: '100vh', pb: 4 }}>
-      <Navbar />
-      <Container maxWidth="md" sx={{ mt: 6 }}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: { xs: 3, md: 5 }, 
-            borderRadius: 3, 
-            boxShadow: '0 4px 20px rgba(0,0,0,0.05)' 
-          }}
-        >
-          <Typography variant="h4" fontWeight="bold" sx={{ mb: 1, color: '#1a237e' }}>
-            Ask a Study Question
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 4 }}>
-            Get an instant topic prediction, confidence level, and similar questions from your study history.
-          </Typography>
-          
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              variant="outlined"
-              placeholder="e.g., How does the process of photosynthesis work in C4 plants?"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={loading}
-              sx={{ 
-                mb: 3,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  bgcolor: '#fff',
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading || !content.trim()}
-              size="large"
-              sx={{ 
-                px: 4, 
-                py: 1.5, 
-                borderRadius: 2,
-                fontWeight: 'bold',
-                textTransform: 'none',
-              }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Analyze & Submit'}
-            </Button>
-          </Box>
-
-          {error && (
-            <Paper sx={{ p: 2, bgcolor: '#ffebee', color: '#c62828', mb: 3, borderRadius: 2 }}>
-              <Typography>{error}</Typography>
-            </Paper>
-          )}
-
-          {result && (
-            <Box sx={{ mt: 6, pt: 4, borderTop: '1px solid #eee' }}>
-              <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <Typography variant="h6" fontWeight="bold">
-                    Assigned Topic:
-                  </Typography>
-                  <Chip 
-                    label={result.question.topic} 
-                    color="secondary" 
-                    sx={{ fontWeight: 'bold', px: 1 }} 
-                  />
-                </Box>
-
-                <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mt: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                  <Typography variant="body1" fontWeight="bold" color="text.secondary">
-                    Classification Confidence:
-                  </Typography>
-                  <Box sx={{ flexGrow: 1, maxWidth: 360, width: '100%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {confidencePercent}% · {confidence.label}
-                      </Typography>
-                    </Box>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={confidencePercent} 
-                      color={confidence.color}
-                      sx={{ height: 8, borderRadius: 4 }}
-                    />
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-                      {confidence.helper}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-              
-              <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-                Similar Previously Asked Questions
-              </Typography>
-              
-              {result.similarQuestions?.length > 0 ? (
-                <Box>
-                  {result.similarQuestions.map(sq => (
-                    <SimilarityCard key={sq.id} question={sq} />
-                  ))}
-                </Box>
-              ) : (
-                <Paper 
-                  elevation={0} 
-                  sx={{ 
-                    p: 4, 
-                    textAlign: 'center', 
-                    bgcolor: '#f8f9fa', 
-                    borderRadius: 2,
-                    border: '1px dashed #ccc'
-                  }}
-                >
-                  <Typography color="text.secondary">
-                    No highly similar questions found. You are the first to ask this!
-                  </Typography>
-                </Paper>
-              )}
-            </Box>
-          )}
-        </Paper>
-      </Container>
-    </Box>
-  );
-};
-
-export default AskQuestion;
+export default function AskQuestion() {
+  const [content, setContent] = useState(''); const [loading, setLoading] = useState(false); const [result, setResult] = useState(null); const [error, setError] = useState('');
+  const remaining = MAX_CHARS - content.length; const over = remaining < 0; const similar = useMemo(() => result?.similarQuestions?.slice(0, 6) || [], [result]);
+  const submit = async event => { event.preventDefault(); if (!content.trim() || over) return; setLoading(true); setError(''); setResult(null); try { const response = await api.post('/questions', { content: content.trim() }); setResult(response.data); setContent(''); } catch (err) { setError(err.response?.data?.message || 'We could not analyze that question. Please try again.'); } finally { setLoading(false); } };
+  const topic = result?.question?.topic || 'General'; const confidence = toPercent(result?.confidenceScore);
+  return <Box sx={{ minHeight:'100vh', pb:6, bgcolor:'background.default' }}><Navbar /><Container maxWidth={false} sx={{ maxWidth:'1400px', pt:{ xs:3, md:5 }, px:{ xs:2, md:3 } }}><Stack spacing={3}>
+    <Box><Typography variant="h4">Ask a question</Typography><Typography color="text.secondary" sx={{ mt:1 }}>Get a topic prediction and discover related questions from your study history.</Typography></Box>
+    <Paper elevation={0} sx={{ p:{ xs:2.5, md:3 }, border:'1px solid', borderColor:'divider' }}><Box component="form" onSubmit={submit}><TextField fullWidth multiline minRows={7} placeholder="What would you like to understand? Ask a study question in your own words..." value={content} onChange={event => setContent(event.target.value)} disabled={loading} error={over} inputProps={{ maxLength: MAX_CHARS + 1 }} sx={{ '& .MuiOutlinedInput-root': { p:2, alignItems:'flex-start' } }} /><Stack direction={{ xs:'column', sm:'row' }} justifyContent="space-between" spacing={2} alignItems={{ sm:'center' }} sx={{ mt:2 }}><Typography variant="caption" color={over ? 'error.main' : 'text.secondary'}>{over ? `Please remove ${Math.abs(remaining)} characters` : `${content.length}/${MAX_CHARS} characters`}</Typography><Button type="submit" variant="contained" disabled={loading || !content.trim() || over} startIcon={loading ? <CircularProgress size={17} color="inherit" /> : <SendIcon />}>{loading ? 'Analyzing question' : 'Analyze question'}</Button></Stack></Box></Paper>
+    <Box><Typography variant="body2" fontWeight={700} sx={{ mb:1.25 }}>Quick examples</Typography><Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">{samples.map(sample => <Chip key={sample} label={sample} clickable variant="outlined" onClick={() => setContent(prompts[sample])} />)}</Stack></Box>
+    {error && <Alert severity="error">{error}</Alert>}
+    {result && <Stack spacing={3}><Paper elevation={0} sx={{ border:'1px solid', borderColor:'divider', overflow:'hidden' }}><Box sx={{ height:4, bgcolor:'primary.main' }} /><Box sx={{ p:{ xs:2.5, md:3 } }}><Stack direction={{ xs:'column', sm:'row' }} justifyContent="space-between" alignItems={{ sm:'center' }} spacing={2}><Box><Stack direction="row" spacing={1} alignItems="center"><AutoAwesomeIcon color="primary" fontSize="small" /><Typography variant="h6">Analysis result</Typography></Stack><Typography variant="body2" color="text.secondary" sx={{ mt:.75 }}>A concise classification based on the concepts in your question.</Typography></Box><Chip icon={<CheckCircleIcon />} label={`${confidence}% confidence`} color={confidence >= 75 ? 'success' : 'warning'} /></Stack><Grid container spacing={3} sx={{ mt:.5 }}><Grid size={{ xs:12, md:4 }}><Box sx={{ p:2, bgcolor:'#F8FAFC', borderRadius:1.5 }}><Typography variant="caption" color="text.secondary">TOPIC</Typography><Typography variant="h6" sx={{ mt:.75 }}>{topic}</Typography></Box></Grid><Grid size={{ xs:12, md:8 }}><Typography variant="caption" color="text.secondary">CONFIDENCE SCORE</Typography><Stack direction="row" justifyContent="space-between" sx={{ mt:.75, mb:1 }}><Typography variant="body2">Classification confidence</Typography><Typography fontWeight={700}>{confidence}%</Typography></Stack><LinearProgress variant="determinate" value={confidence} sx={{ height:8, borderRadius:4, bgcolor:'#E2E8F0' }} /><Typography variant="body2" color="text.secondary" sx={{ mt:2 }}>{result?.question?.explanation || result?.explanation || fallbackExplanation(topic)}</Typography></Grid></Grid></Box></Paper>
+      <Box><Typography variant="h6" sx={{ mb:1 }}>Similar questions</Typography><Typography variant="body2" color="text.secondary" sx={{ mb:2.5 }}>Related questions from your study history.</Typography>{similar.length ? <Grid container spacing={2}>{similar.map((item,index) => <Grid key={item._id || item.id || index} size={{ xs:12, sm:6, lg:4 }}><SimilarCard item={item} /></Grid>)}</Grid> : <Paper elevation={0} sx={{ p:4, textAlign:'center', border:'1px dashed', borderColor:'divider' }}><Typography fontWeight={700}>No similar questions found yet.</Typography><Typography variant="body2" color="text.secondary" sx={{ mt:.5 }}>Keep asking questions to build your personal study archive.</Typography></Paper>}</Box>
+    </Stack>}
+  </Stack></Container></Box>;
+}
