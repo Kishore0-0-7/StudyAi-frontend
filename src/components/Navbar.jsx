@@ -18,8 +18,8 @@ export default function Navbar() {
   const logOut = () => { logout(); navigate('/login'); };
   if (!user) return null;
   return (
-    <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: 'background.default', py: .5 }}>
-      <Container maxWidth={false} sx={{ maxWidth: '1520px', px: { xs: 1, md: 2 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+    <AppBar position="sticky" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', zIndex: 1100 }}>
+      <Container maxWidth={false} sx={{ maxWidth: '1400px', px: { xs: 2, md: 3 } }}>
         <Toolbar disableGutters sx={{ minHeight: '72px !important', gap: { xs: 1, md: 4 } }}>
           <Box component={RouterLink} to="/" sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }} aria-label="StudyMind AI home">
             <Box component="img" src="/STUDYMIND-AI-ICON.png" alt="StudyMind AI" sx={{ height: 36, width: 'auto', display: 'block' }} />
